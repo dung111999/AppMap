@@ -1,12 +1,17 @@
 import React, { Component } from 'react';
-import { Text, TextInput, View, Image, StatusBar, Dimensions, ActivityIndicator, FlatList, TouchableOpacity } from 'react-native';
+import { Text, TextInput, View, Image, StatusBar, TouchableOpacity, Dimensions, ActivityIndicator, FlatList, Keyboard } from 'react-native';
 import MapView, { PROVIDER_GOOGLE, Marker, Callout } from 'react-native-maps';
 import { styles } from '../StyleSheet';
 import { Item } from '../RenderItem';
 import Geolocation from '@react-native-community/geolocation';
 import { ScrollView } from 'react-native-gesture-handler';
+import Icon from 'react-native-vector-icons/MaterialIcons';
+import SectionedMultiSelect from 'react-native-sectioned-multi-select';
 
 let { height, width } = Dimensions.get('window');
+
+const serviceGas = ['RON 95', 'RON 92', 'Diesel', 'Dầu nhờn', 'Bảo hiểm', 'Thay dầu'];
+const serviceATM = ['Techcombank', 'BIDV', 'TP Bank', 'Nộp tiền', 'Rút tiền', 'Vấn tin số dư', 'Chuyển tiền', 'Mở tài khoản thanh toán', 'Phát hành thẻ lấy ngay'];
 
 export default class MainPage extends Component {
     constructor(props) {
@@ -27,8 +32,7 @@ export default class MainPage extends Component {
             search: '',
             isFocus: false,
             refresh: true,
-            filter: '',
-            filterList: false
+            selectedItems: [],
         }
     }
     async componentDidMount() {
@@ -38,7 +42,7 @@ export default class MainPage extends Component {
                 (error) => console.log(error),
                 { enableHighAccuracy: false, timeout: 50000 }
             );
-            const response = await fetch('http://192.168.0.105:8084/poi');
+            const response = await fetch('http://192.168.0.113:8084/poi');
             const responseJson = await response.json();
             this.setState({
                 isLoading: false,
@@ -73,6 +77,7 @@ export default class MainPage extends Component {
             regionLongitude: item.longitude,
             isFocus: false
         })
+        Keyboard.dismiss();
     }
     updateSearch = (search) => {
         this.setState({
@@ -80,6 +85,85 @@ export default class MainPage extends Component {
             refresh: !this.state.refresh
         })
     };
+
+    onSelectedItemsChange = (selectedItems) => {
+        this.setState({ selectedItems });
+    };
+
+    onSelectedConfirm() {
+        return (
+            <Marker
+                coordinate={{ latitude: 21.02764761680186, longitude: 105.83545022562521 }}
+            />
+        )
+    }
+
+    getTypes() {
+        let names = [];
+
+        names[0] = this.state.dataSource[0].types;
+
+        let x = 1;
+
+        for (let i = 1; i < this.state.dataSource.length; i++) {
+            let dem = 0;
+            for (let j = 0; j < x; j++) {
+                if (this.state.dataSource[i].types == names[j]) {
+                    dem++;
+                }
+            }
+
+            if (dem == 0) {
+                names[x] = this.state.dataSource[i].types;
+                x++;
+            }
+        }
+
+        return names;
+    }
+
+    result(types, dem) {
+        let result = [];
+
+        for (let i = 0; i < types.length; i++) {
+            result.push({
+                id: ++dem,
+                name: types[i]
+            });
+        }
+
+        return result;
+    }
+
+    renderItems() {
+        let items = [];
+
+        let dem = 0;
+
+        for (let i = 0; i < this.getTypes().length; i++) {
+
+            if (this.getTypes()[i] == 'gas') {
+                items.push({
+                    name: 'Trạm xăng',
+                    id: ++dem,
+                    children: this.result(serviceGas, count = 100)
+                })
+
+            } else if (this.getTypes()[i] == 'ATM') {
+                items.push(
+                    {
+                        name: 'ATM',
+                        id: ++dem,
+                        children: this.result(serviceATM, count = 1000)
+                    }
+                )
+            }
+            dem++;
+        }
+
+
+        return items;
+    }
 
     render() {
         const { search } = this.state
@@ -91,6 +175,7 @@ export default class MainPage extends Component {
                 </View>
             )
         }
+        let items = this.renderItems()
 
         return (
             <View style={styles.container}>
@@ -112,40 +197,45 @@ export default class MainPage extends Component {
                             regionLongitudeDelta: region.longitudeDelta
                         })
                     }}
+                    onPress={() => { this.setState({ isFocus: false, info: false }); Keyboard.dismiss(); }}
                 >
-                    {this.state.location == true ? <Marker coordinate={{ latitude: this.state.currentPositionLatitude, longitude: this.state.currentPositionLongitude }} pinColor='#5ec3f2'
-                        title='Vị trí của bạn'
-                    /> : <View />}
-                    <Marker coordinate={{ latitude: this.state.latitude, longitude: this.state.longitude }}
-                        title={this.state.item.name}
-                        description={this.state.item.address}
-                        onPress={() => this.setState({ info: true })}
-                        onDeselect={() => this.setState({ info: false })}
-                    />
+                    {this.state.location == true ?
+                        <Marker coordinate={{ latitude: this.state.currentPositionLatitude, longitude: this.state.currentPositionLongitude }} pinColor='#5ec3f2' title='Vị trí của bạn'
+                        /> : <View />}
+                    {this.state.latitude != 0 && this.state.longitude != 0 ?
+                        <Marker coordinate={{ latitude: this.state.latitude, longitude: this.state.longitude }}
+                            onPress={() => this.setState({ info: true })} /> : <View />
+                    }
+
                 </MapView>
                 <View style={styles.findingBox}>
-                    <View style={{ flex: 1, justifyContent: "center", alignItems: 'center' }}>
-                        <Image source={require('../pictures/map.png')} style={{ width: 30, height: 30 }} />
-                    </View>
-                    <View style={{ flex: 8 }}>
-                        <TextInput
-                            style={{ width: width }}
-                            placeholder="Tìm kiếm địa điểm"
-                            onChangeText={this.updateSearch}
-                            value={search}
-                            maxLength={45}
-                            onFocus={onFocus}
-                        />
-                    </View>
-
-                    <TouchableOpacity style={{ flex: 1, justifyContent: "center", alignItems: 'center' }}>
-                        <Image source={require('../pictures/filter.png')} style={{ width: 30, height: 30 }} />
-                    </TouchableOpacity>
-
+                    <Image source={require('../pictures/map.png')} style={{ width: 30, height: 30, flex: 1 }} />
+                    <TextInput
+                        style={{ width: width, flex: 8 }}
+                        placeholder='Tìm kiếm địa điểm'
+                        onChangeText={this.updateSearch}
+                        value={search}
+                        maxLength={45}
+                        onFocus={onFocus}
+                        on
+                    />
+                    <SectionedMultiSelect
+                        items={items}
+                        IconRenderer={Icon}
+                        uniqueKey="id"
+                        subKey="children"
+                        showDropDowns={true}
+                        readOnlyHeadings={true}
+                        onSelectedItemsChange={this.onSelectedItemsChange}
+                        onConfirm={this.onSelectedConfirm}
+                        selectedItems={this.state.selectedItems}
+                        style={{ flex: 1 }}
+                    />
                 </View>
                 {this.state.isFocus == true ?
-                    <ScrollView style={styles.listSearch}>
+                    <ScrollView style={styles.listSearch} keyboardShouldPersistTaps='handled'>
                         <FlatList
+                            keyboardShouldPersistTaps='handled'
                             data={this.state.dataSource}
                             renderItem={({ item }) => <Item fun={() => this.updatePosition(item)} item={item} check={this.state.search} currentLat={this.state.currentPositionLatitude} currentLon={this.state.currentPositionLongitude} />}
                             extraData={this.state.refresh}
