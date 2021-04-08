@@ -1,5 +1,5 @@
 import React, { Component } from 'react';
-import { Text, TextInput, View, Image, StatusBar, TouchableOpacity, Dimensions, ActivityIndicator, FlatList, Keyboard } from 'react-native';
+import { Text, TextInput, View, Image, StatusBar, TouchableOpacity, Dimensions, ActivityIndicator, FlatList, Keyboard, Button } from 'react-native';
 import MapView, { PROVIDER_GOOGLE, Marker, Callout } from 'react-native-maps';
 import { styles } from '../StyleSheet';
 import { Item } from '../RenderItem';
@@ -12,6 +12,7 @@ let { height, width } = Dimensions.get('window');
 
 const serviceGas = ['RON 95', 'RON 92', 'Diesel', 'Dầu nhờn', 'Bảo hiểm', 'Thay dầu'];
 const serviceATM = ['Techcombank', 'BIDV', 'TP Bank', 'Nộp tiền', 'Rút tiền', 'Vấn tin số dư', 'Chuyển tiền', 'Mở tài khoản thanh toán', 'Phát hành thẻ lấy ngay'];
+const openTime = ['05:00 - 24:00', '05:30 - 22:00', '06:00 - 22:00', '06:00 - 22:30', '24/24']
 
 export default class MainPage extends Component {
     constructor(props) {
@@ -33,6 +34,7 @@ export default class MainPage extends Component {
             isFocus: false,
             refresh: true,
             selectedItems: [],
+            confirm: false
         }
     }
     async componentDidMount() {
@@ -42,7 +44,7 @@ export default class MainPage extends Component {
                 (error) => console.log(error),
                 { enableHighAccuracy: false, timeout: 50000 }
             );
-            const response = await fetch('http://192.168.0.113:8084/poi');
+            const response = await fetch('http://192.168.1.9:8084/poi');
             const responseJson = await response.json();
             this.setState({
                 isLoading: false,
@@ -90,12 +92,10 @@ export default class MainPage extends Component {
         this.setState({ selectedItems });
     };
 
-    onSelectedConfirm() {
-        return (
-            <Marker
-                coordinate={{ latitude: 21.02764761680186, longitude: 105.83545022562521 }}
-            />
-        )
+    onSelectedConfirm = () => {
+        this.setState({
+            confirm: true
+        })
     }
 
     getTypes() {
@@ -122,14 +122,30 @@ export default class MainPage extends Component {
         return names;
     }
 
-    result(types, dem) {
+    result(types) {
         let result = [];
+
+        let dem = 0;
 
         for (let i = 0; i < types.length; i++) {
             result.push({
-                id: ++dem,
+                id: types[i],
                 name: types[i]
             });
+        }
+
+        return result;
+    }
+
+    resultOpenTime() {
+        let result = [];
+        let dem = 10000;
+
+        for (let i = 0; i < openTime.length; i++) {
+            result.push({
+                id: openTime[i],
+                name: openTime[i]
+            })
         }
 
         return result;
@@ -145,22 +161,48 @@ export default class MainPage extends Component {
             if (this.getTypes()[i] == 'gas') {
                 items.push({
                     name: 'Trạm xăng',
-                    id: ++dem,
-                    children: this.result(serviceGas, count = 100)
+                    id: 'Trạm xăng',
+                    children: this.result(serviceGas)
                 })
 
             } else if (this.getTypes()[i] == 'ATM') {
                 items.push(
                     {
                         name: 'ATM',
-                        id: ++dem,
-                        children: this.result(serviceATM, count = 1000)
+                        id: 'ATM',
+                        children: this.result(serviceATM)
                     }
                 )
             }
-            dem++;
         }
 
+        items.push({
+            name: 'Thời gian mở cửa',
+            id: 'Thời gian mở cửa',
+            children: this.resultOpenTime()
+        })
+
+        return items;
+    }
+
+    markerFilter(latitude, longitude, key) {
+        return (
+            <Marker
+                key={key}
+                title='Test'
+                coordinate={{ latitude, longitude }}
+            />
+        )
+    }
+
+    checkContains() {
+        let items = [];
+
+        for (let i = 0; i < this.state.dataSource.length; i++) {
+            if (this.state.dataSource[i].services.split(", ").toString().includes(this.state.selectedItems)) {
+                items.push(this.markerFilter(this.state.dataSource[i].latitude, this.state.dataSource[i].longitude, i));
+            }
+        }
 
         return items;
     }
@@ -206,6 +248,7 @@ export default class MainPage extends Component {
                         <Marker coordinate={{ latitude: this.state.latitude, longitude: this.state.longitude }}
                             onPress={() => this.setState({ info: true })} /> : <View />
                     }
+                    {this.state.confirm == true ? this.checkContains() : <View />}
 
                 </MapView>
                 <View style={styles.findingBox}>
@@ -230,6 +273,7 @@ export default class MainPage extends Component {
                         onConfirm={this.onSelectedConfirm}
                         selectedItems={this.state.selectedItems}
                         style={{ flex: 1 }}
+                        showChips={false}
                     />
                 </View>
                 {this.state.isFocus == true ?
