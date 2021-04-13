@@ -7,11 +7,12 @@ import Geolocation from '@react-native-community/geolocation';
 import { ScrollView } from 'react-native-gesture-handler';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import SectionedMultiSelect from 'react-native-sectioned-multi-select';
+import { getDistance } from 'geolib';
 
 let { height, width } = Dimensions.get('window');
 
 const serviceGas = ['RON 95', 'RON 92', 'Diesel', 'Dầu nhờn', 'Bảo hiểm', 'Thay dầu'];
-const serviceATM = ['Techcombank', 'BIDV', 'TP Bank', 'Nộp tiền', 'Rút tiền', 'Vấn tin số dư', 'Chuyển tiền', 'Mở tài khoản thanh toán', 'Phát hành thẻ lấy ngay'];
+const serviceATM = ['Techcombank', 'BIDV', 'TP', 'Nộp tiền', 'Rút tiền', 'Vấn tin số dư', 'Chuyển tiền', 'Mở tài khoản thanh toán', 'Phát hành thẻ lấy ngay'];
 const openTime = ['05:00 - 24:00', '05:30 - 22:00', '06:00 - 22:00', '06:00 - 22:30', '24/24']
 
 export default class MainPage extends Component {
@@ -44,7 +45,7 @@ export default class MainPage extends Component {
                 (error) => console.log(error),
                 { enableHighAccuracy: false, timeout: 50000 }
             );
-            const response = await fetch('http://192.168.1.9:8084/poi');
+            const response = await fetch('http://192.168.0.110:8084/poi');
             const responseJson = await response.json();
             this.setState({
                 isLoading: false,
@@ -54,6 +55,7 @@ export default class MainPage extends Component {
         } catch (error) {
             console.error(error);
         }
+
     }
     currentPosition() {
         Geolocation.getCurrentPosition(
@@ -125,7 +127,17 @@ export default class MainPage extends Component {
     result(types) {
         let result = [];
 
-        let dem = 0;
+        if (types == serviceGas) {
+            result.push({
+                id: 'Gần tôi gas',
+                name: 'Gần tôi'
+            })
+        } else if (types == serviceATM) {
+            result.push({
+                id: 'Gần tôi ATM',
+                name: 'Gần tôi'
+            })
+        }
 
         for (let i = 0; i < types.length; i++) {
             result.push({
@@ -139,7 +151,6 @@ export default class MainPage extends Component {
 
     resultOpenTime() {
         let result = [];
-        let dem = 10000;
 
         for (let i = 0; i < openTime.length; i++) {
             result.push({
@@ -153,8 +164,6 @@ export default class MainPage extends Component {
 
     renderItems() {
         let items = [];
-
-        let dem = 0;
 
         for (let i = 0; i < this.getTypes().length; i++) {
 
@@ -195,17 +204,119 @@ export default class MainPage extends Component {
         )
     }
 
+    removeItem(arr, value) {
+        var index = arr.indexOf(value);
+        if (index > -1) {
+            arr.splice(index, 1);
+        }
+        return arr;
+    }
+
+    getDistance(lat1, lon1, lat2, lon2) {
+        var dis = getDistance(
+            { latitude: lat1, longitude: lon1 },
+            { latitude: lat2, longitude: lon2 },
+        );
+
+        var distance = dis / 1000;
+
+        return distance;
+    }
+
     checkContains() {
         let items = [];
+        let dis = [];
+        let lat = [];
+        let lon = [];
+        let index = -1;
 
-        for (let i = 0; i < this.state.dataSource.length; i++) {
-            if (this.state.dataSource[i].services.split(", ").toString().includes(this.state.selectedItems)) {
-                items.push(this.markerFilter(this.state.dataSource[i].latitude, this.state.dataSource[i].longitude, i));
+        if (this.state.selectedItems.length != 0) {
+            for (let i = 0; i < this.state.dataSource.length; i++) {
+                if (this.state.selectedItems.includes("Gần tôi gas") == false && this.state.selectedItems.includes("Gần tôi ATM") == false) {
+                    if (this.state.selectedItems.includes(this.state.dataSource[i].open_close) == false) {
+                        if (this.state.selectedItems.every((x) => this.state.dataSource[i].services.split(", ").includes(x))) {
+                            items.push(this.markerFilter(this.state.dataSource[i].latitude, this.state.dataSource[i].longitude, i));
+                        }
+                    } else {
+                        //Kiem tra lai services voi thoi gian do
+                        if (this.state.dataSource[i].open_close == "05:00 - 24:00") {
+                            let arr = this.removeItem(this.state.selectedItems, this.state.dataSource[i].open_close);
+                            console.log(arr);
+                            if (arr.every((x) => this.state.dataSource[i].services.split(", ").includes(x))) {
+                                items.push(this.markerFilter(this.state.dataSource[i].latitude, this.state.dataSource[i].longitude, i));
+                            }
+                            this.state.selectedItems.push(this.state.dataSource[i].open_close);
+                            console.log(this.state.selectedItems);
+                        } else if (this.state.dataSource[i].open_close == "05:30 - 22:00") {
+                            let arr = this.removeItem(this.state.selectedItems, this.state.dataSource[i].open_close);
+                            console.log(arr);
+                            if (arr.every((x) => this.state.dataSource[i].services.split(", ").includes(x))) {
+                                items.push(this.markerFilter(this.state.dataSource[i].latitude, this.state.dataSource[i].longitude, i));
+                            }
+                            this.state.selectedItems.push(this.state.dataSource[i].open_close);
+                            console.log(this.state.selectedItems);
+                        } else if (this.state.dataSource[i].open_close == "06:00 - 22:00") {
+                            let arr = this.removeItem(this.state.selectedItems, this.state.dataSource[i].open_close);
+                            console.log(arr);
+                            if (arr.every((x) => this.state.dataSource[i].services.split(", ").includes(x))) {
+                                items.push(this.markerFilter(this.state.dataSource[i].latitude, this.state.dataSource[i].longitude, i));
+                            }
+                            this.state.selectedItems.push(this.state.dataSource[i].open_close);
+                            console.log(this.state.selectedItems);
+                        } else if (this.state.dataSource[i].open_close == "06:00 - 22:30") {
+                            let arr = this.removeItem(this.state.selectedItems, this.state.dataSource[i].open_close);
+                            console.log(arr);
+                            if (arr.every((x) => this.state.dataSource[i].services.split(", ").includes(x))) {
+                                items.push(this.markerFilter(this.state.dataSource[i].latitude, this.state.dataSource[i].longitude, i));
+                            }
+                            this.state.selectedItems.push(this.state.dataSource[i].open_close);
+                            console.log(this.state.selectedItems);
+                        } else if (this.state.dataSource[i].open_close == "24/24") {
+                            let arr = this.removeItem(this.state.selectedItems, this.state.dataSource[i].open_close);
+                            console.log(arr);
+                            if (arr.every((x) => this.state.dataSource[i].services.split(", ").includes(x))) {
+                                items.push(this.markerFilter(this.state.dataSource[i].latitude, this.state.dataSource[i].longitude, i));
+                            }
+                            this.state.selectedItems.push(this.state.dataSource[i].open_close);
+                            console.log(this.state.selectedItems);
+                        }
+                    }
+                } else {
+                    if (this.state.selectedItems.includes("Gần tôi ATM")) {
+                        let arr = this.removeItem(this.state.selectedItems, "Gần tôi ATM");
+                        if (arr.every((x) => this.state.dataSource[i].services.split(", ").includes(x))) {
+                            dis.push(this.getDistance(this.state.currentPositionLatitude, this.state.currentPositionLongitude, this.state.dataSource[i].latitude, this.state.dataSource[i].longitude));
+                            lat.push(this.state.dataSource[i].latitude);
+                            lon.push(this.state.dataSource[i].longitude);
+                            index = dis.indexOf(Math.min.apply(Math, dis));
+                        }
+
+
+                        this.state.selectedItems.push("Gần tôi ATM");
+                    } else if (this.state.selectedItems.includes("Gần tôi gas")) {
+                        let arr = this.removeItem(this.state.selectedItems, "Gần tôi gas");
+                        if (arr.every((x) => this.state.dataSource[i].services.split(", ").includes(x))) {
+                            dis.push(this.getDistance(this.state.currentPositionLatitude, this.state.currentPositionLongitude, this.state.dataSource[i].latitude, this.state.dataSource[i].longitude));
+                            lat.push(this.state.dataSource[i].latitude);
+                            lon.push(this.state.dataSource[i].longitude);
+                            index = dis.indexOf(Math.min.apply(Math, dis));
+                        }
+                        this.state.selectedItems.push("Gần tôi gas");
+                    }
+
+                }
             }
-        }
+            if (this.state.selectedItems.includes("Gần tôi ATM")) {
+                items.push(this.markerFilter(lat[index], lon[index], "keyATM"));
+            }
+            if (this.state.selectedItems.includes("Gần tôi gas")) {
+                items.push(this.markerFilter(lat[index], lon[index], "keyGas"));
+            }
+            return items;
 
-        return items;
+        }
     }
+
 
     render() {
         const { search } = this.state
