@@ -4,6 +4,7 @@ import android.app.Application;
 
 import com.facebook.react.ReactApplication;
 import com.reactnativecommunity.geolocation.GeolocationPackage;
+import com.reactnativecommunity.picker.RNCPickerPackage;
 import com.oblador.vectoricons.VectorIconsPackage;
 import com.BV.LinearGradient.LinearGradientPackage;
 import com.th3rdwave.safeareacontext.SafeAreaContextPackage;
@@ -17,6 +18,7 @@ import com.facebook.soloader.SoLoader;
 import java.util.Arrays;
 import java.util.List;
 import com.airbnb.android.react.maps.MapsPackage;
+import com.rnfs.RNFSPackage;
 
 public class MainApplication extends Application implements ReactApplication {
 
@@ -37,7 +39,9 @@ public class MainApplication extends Application implements ReactApplication {
             new RNScreensPackage(),
             new RNGestureHandlerPackage(),
             new ReanimatedPackage(),
-            new MapsPackage()
+            new MapsPackage(),
+            new RNCPickerPackage(),
+            new RNFSPackage()
       );
     }
 

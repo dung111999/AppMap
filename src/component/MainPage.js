@@ -1,61 +1,65 @@
 import React, { Component } from 'react';
-import { Text, TextInput, View, Image, StatusBar, TouchableOpacity, Dimensions, ActivityIndicator, FlatList, Keyboard, Button } from 'react-native';
-import MapView, { PROVIDER_GOOGLE, Marker, Callout } from 'react-native-maps';
+import { Text, TextInput, View, Image, StatusBar, TouchableOpacity, Dimensions, ActivityIndicator, FlatList, Keyboard } from 'react-native';
+import MapView, { PROVIDER_GOOGLE, Marker } from 'react-native-maps';
+import MapViewDirections from 'react-native-maps-directions';
 import { styles } from '../StyleSheet';
-import { Item } from '../RenderItem';
+import { Item } from '../function/RenderItem';
 import Geolocation from '@react-native-community/geolocation';
 import { ScrollView } from 'react-native-gesture-handler';
+import { SearchLog } from '../function/SearchLog';
+import { GetLog } from '../function/GetLog';
+import { FetchData } from '../function/FetchData';
+import { History } from '../function/RenderHistory';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import SectionedMultiSelect from 'react-native-sectioned-multi-select';
 import { getDistance } from 'geolib';
 
 let { height, width } = Dimensions.get('window');
 
-const serviceGas = ['RON 95', 'RON 92', 'Diesel', 'Dầu nhờn', 'Bảo hiểm', 'Thay dầu'];
-const serviceATM = ['Techcombank', 'BIDV', 'TP', 'Nộp tiền', 'Rút tiền', 'Vấn tin số dư', 'Chuyển tiền', 'Mở tài khoản thanh toán', 'Phát hành thẻ lấy ngay'];
-const openTime = ['05:00 - 24:00', '05:30 - 22:00', '06:00 - 22:00', '06:00 - 22:30', '24/24']
-
+const serviceGas = ['RON 95', 'RON 92', 'Diesel', 'Dầu nhờn', 'Bảo hiểm', 'Sơn', 'Nước giặt', 'Thay dầu', 'Nhà vệ sinh'];
+const serviceATM = ['Agribank', 'BIDV', 'Vietcombank', 'Vietinbank', 'Techcombank', 'TP', 'MB', 'VP', 'VIB', 'ACB', 'MSB', 'PG', 'SHB', 'Sacombank', 'AB', 'SeABank', 'SaiGonBank', 'PublicBank', 'HSBC', 'HDBank', 'Eximbank', 'PVCombank', 'OceanBank', 'VietBank', 'VietABank', 'GPBank', 'Nộp tiền', 'Rút tiền', 'Vấn tin số dư', 'Chuyển tiền', 'Mở tài khoản thanh toán', 'Phát hành thẻ lấy ngay'];
+const openTime = ['05:00 - 24:00', '05:30 - 22:00', '06:00 - 22:00', '06:00 - 22:30', '08:00 - 22:00', '24/24'];
+// let listItem = new Set([]);
 export default class MainPage extends Component {
     constructor(props) {
         super(props);
         this.state = {
             isLoading: true,
             dataSource: [],
+            direct: [],
             item: {},
             latitude: 0,
             longitude: 0,
             regionLatitude: 0,
             regionLongitude: 0,
-            regionLatitudeDelta: 0.05,
-            regionLongitudeDelta: 0.05,
+            regionLatitudeDelta: 0.01,
+            regionLongitudeDelta: 0.01,
             currentPositionLatitude: 0,
             currentPositionLongitude: 0,
-            location: true,
             search: '',
+            location: true,
             isFocus: false,
             refresh: true,
+            direct: false,
+            history: '',
             selectedItems: [],
-            confirm: false
+            confirm: false,
+            itemInfo: [],
+            oneInfo: false,
+            // idReal: 0,
+            // items: [],
         }
     }
     async componentDidMount() {
-        try {
-            Geolocation.getCurrentPosition(
-                (info) => this.getPosition(info.coords.latitude, info.coords.longitude),
-                (error) => console.log(error),
-                { enableHighAccuracy: false, timeout: 50000 }
-            );
-            const response = await fetch('http://192.168.0.110:8084/poi');
-            const responseJson = await response.json();
+        this.currentPosition();
+        this.getLog();
+        FetchData.data().then((res) => {
+            //console.log(res)
             this.setState({
                 isLoading: false,
-                dataSource: responseJson,
-            }, function () {
-            });
-        } catch (error) {
-            console.error(error);
-        }
-
+                dataSource: res,
+            })
+        })
     }
     currentPosition() {
         Geolocation.getCurrentPosition(
@@ -73,22 +77,38 @@ export default class MainPage extends Component {
         })
     }
     updatePosition(item) {
+        SearchLog({ name: item.name })
         this.setState({
             item: item,
             latitude: item.latitude,
             longitude: item.longitude,
             regionLatitude: item.latitude,
             regionLongitude: item.longitude,
-            isFocus: false
         })
-        Keyboard.dismiss();
+        this.clear();
     }
     updateSearch = (search) => {
         this.setState({
             search,
             refresh: !this.state.refresh
         })
-    };
+    }
+    getLog() {
+        GetLog.log().then(res => {
+            this.setState({
+                history: res,
+            })
+        })
+    }
+    clear() {
+        this.setState({
+            isFocus: false,
+            info: false,
+            direct: false,
+        })
+        this.getLog();
+        Keyboard.dismiss();
+    }
 
     onSelectedItemsChange = (selectedItems) => {
         this.setState({ selectedItems });
@@ -164,7 +184,6 @@ export default class MainPage extends Component {
 
     renderItems() {
         let items = [];
-
         for (let i = 0; i < this.getTypes().length; i++) {
 
             if (this.getTypes()[i] == 'gas') {
@@ -194,14 +213,71 @@ export default class MainPage extends Component {
         return items;
     }
 
-    markerFilter(latitude, longitude, key) {
-        return (
-            <Marker
-                key={key}
-                title='Test'
-                coordinate={{ latitude, longitude }}
-            />
-        )
+    setData(data) {
+        this.setState({
+            itemInfo: data,
+            info: true
+        })
+        console.log("click " + data)
+    }
+
+    markerFilter(data, key) {
+
+        // if (data.types == "gas") {
+        //     this.state.item = data;
+        //     console.log(this.state.item);
+        //     return (
+        //         <Marker
+        //             key={key}
+        //             coordinate={{ latitude: data.latitude, longitude: data.longitude }}
+        //             onPress={() => { this.setState({ info: true }) }}
+        //         >
+        //             <Image source={require('../pictures/pointer_gas.png')} style={{ width: 60, height: 60 }} />
+        //         </Marker>
+        //     )
+        // }
+        // if (data.types == 'ATM') {
+        //     this.state.item = data;
+        //     console.log(this.state.item);
+        //     return (
+        //         <Marker
+        //             key={key}
+        //             coordinate={{ latitude: data.latitude, longitude: data.longitude }}
+        //             onPress={() => { this.setState({ info: true }) }}
+        //         >
+        //             <Image source={require('../pictures/pointer_atm.png')} style={{ width: 60, height: 60 }} />
+        //         </Marker>
+        //     )
+        // }
+        // this.setState(prevState => ({
+        //     items: [...new Map(prevState.items.map(o => [o.id, o])).values(), data]
+        //   }))
+        // listItem.add(data);
+        this.state.item = data;
+        if (this.state.item.types == 'gas') {
+            //console.log(this.state.item);
+            return (
+                <Marker
+                    key={key}
+                    coordinate={{ latitude: data.latitude, longitude: data.longitude }}
+                    onPress={() => this.setData(data)}
+                >
+                    <Image source={require('../pictures/pointer_gas.png')} style={{ width: 60, height: 60 }} />
+                </Marker>
+            )
+        }
+        if (this.state.item.types == 'ATM') {
+            //console.log(this.state.item);
+            return (
+                <Marker
+                    key={key}
+                    coordinate={{ latitude: data.latitude, longitude: data.longitude }}
+                    onPress={() => this.setData(data)}
+                >
+                    <Image source={require('../pictures/pointer_atm.png')} style={{ width: 60, height: 60 }} />
+                </Marker>
+            )
+        }
     }
 
     removeItem(arr, value) {
@@ -223,104 +299,209 @@ export default class MainPage extends Component {
         return distance;
     }
 
+    checkOpenClose() {
+        for (let i = 0; i < openTime.length; i++) {
+            if (this.state.selectedItems.includes(openTime[i])) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    checkOnceOpenClose() {
+        let count = 0;
+        for (let i = 0; i < openTime.length; i++) {
+            if (this.state.selectedItems.includes(openTime[i])) {
+                count++;
+            }
+        }
+        if (count == 1) {
+            return true;
+        }
+        return false;
+    }
+
+    getOnceOpenClose() {
+        let count = 0;
+        let result = null;
+        for (let i = 0; i < openTime.length; i++) {
+            if (this.state.selectedItems.includes(openTime[i])) {
+                count++;
+                result = openTime[i];
+            }
+        }
+        if (count == 1) {
+            return result;
+        }
+        return null;
+    }
+
     checkContains() {
+        // this.markOneItem() = null;
         let items = [];
         let dis = [];
-        let lat = [];
-        let lon = [];
+        let dataCoor = [];
         let index = -1;
+        let check = 0;
+        let arr = [];
 
         if (this.state.selectedItems.length != 0) {
+            // listItem.clear();
+
             for (let i = 0; i < this.state.dataSource.length; i++) {
-                if (this.state.selectedItems.includes("Gần tôi gas") == false && this.state.selectedItems.includes("Gần tôi ATM") == false) {
-                    if (this.state.selectedItems.includes(this.state.dataSource[i].open_close) == false) {
-                        if (this.state.selectedItems.every((x) => this.state.dataSource[i].services.split(", ").includes(x))) {
-                            items.push(this.markerFilter(this.state.dataSource[i].latitude, this.state.dataSource[i].longitude, i));
-                        }
-                    } else {
-                        //Kiem tra lai services voi thoi gian do
-                        if (this.state.dataSource[i].open_close == "05:00 - 24:00") {
-                            let arr = this.removeItem(this.state.selectedItems, this.state.dataSource[i].open_close);
-                            console.log(arr);
-                            if (arr.every((x) => this.state.dataSource[i].services.split(", ").includes(x))) {
-                                items.push(this.markerFilter(this.state.dataSource[i].latitude, this.state.dataSource[i].longitude, i));
-                            }
-                            this.state.selectedItems.push(this.state.dataSource[i].open_close);
-                            console.log(this.state.selectedItems);
-                        } else if (this.state.dataSource[i].open_close == "05:30 - 22:00") {
-                            let arr = this.removeItem(this.state.selectedItems, this.state.dataSource[i].open_close);
-                            console.log(arr);
-                            if (arr.every((x) => this.state.dataSource[i].services.split(", ").includes(x))) {
-                                items.push(this.markerFilter(this.state.dataSource[i].latitude, this.state.dataSource[i].longitude, i));
-                            }
-                            this.state.selectedItems.push(this.state.dataSource[i].open_close);
-                            console.log(this.state.selectedItems);
-                        } else if (this.state.dataSource[i].open_close == "06:00 - 22:00") {
-                            let arr = this.removeItem(this.state.selectedItems, this.state.dataSource[i].open_close);
-                            console.log(arr);
-                            if (arr.every((x) => this.state.dataSource[i].services.split(", ").includes(x))) {
-                                items.push(this.markerFilter(this.state.dataSource[i].latitude, this.state.dataSource[i].longitude, i));
-                            }
-                            this.state.selectedItems.push(this.state.dataSource[i].open_close);
-                            console.log(this.state.selectedItems);
-                        } else if (this.state.dataSource[i].open_close == "06:00 - 22:30") {
-                            let arr = this.removeItem(this.state.selectedItems, this.state.dataSource[i].open_close);
-                            console.log(arr);
-                            if (arr.every((x) => this.state.dataSource[i].services.split(", ").includes(x))) {
-                                items.push(this.markerFilter(this.state.dataSource[i].latitude, this.state.dataSource[i].longitude, i));
-                            }
-                            this.state.selectedItems.push(this.state.dataSource[i].open_close);
-                            console.log(this.state.selectedItems);
-                        } else if (this.state.dataSource[i].open_close == "24/24") {
-                            let arr = this.removeItem(this.state.selectedItems, this.state.dataSource[i].open_close);
-                            console.log(arr);
-                            if (arr.every((x) => this.state.dataSource[i].services.split(", ").includes(x))) {
-                                items.push(this.markerFilter(this.state.dataSource[i].latitude, this.state.dataSource[i].longitude, i));
-                            }
-                            this.state.selectedItems.push(this.state.dataSource[i].open_close);
-                            console.log(this.state.selectedItems);
-                        }
+                if (this.state.selectedItems.includes("Gần tôi ATM") == false && this.state.selectedItems.includes("Gần tôi gas") == false && this.checkOpenClose() == false) {
+                    if (this.state.selectedItems.every((x) => this.state.dataSource[i].services.split(", ").includes(x))) {
+                        // items.push(this.markerFilter(this.state.dataSource[i].latitude, this.state.dataSource[i].longitude, i));
+                        items.push(this.markerFilter(this.state.dataSource[i], i));
                     }
                 } else {
-                    if (this.state.selectedItems.includes("Gần tôi ATM")) {
-                        let arr = this.removeItem(this.state.selectedItems, "Gần tôi ATM");
-                        if (arr.every((x) => this.state.dataSource[i].services.split(", ").includes(x))) {
-                            dis.push(this.getDistance(this.state.currentPositionLatitude, this.state.currentPositionLongitude, this.state.dataSource[i].latitude, this.state.dataSource[i].longitude));
-                            lat.push(this.state.dataSource[i].latitude);
-                            lon.push(this.state.dataSource[i].longitude);
-                            index = dis.indexOf(Math.min.apply(Math, dis));
+
+                    if (this.state.selectedItems.includes("Gần tôi ATM") && this.state.dataSource[i].types == 'ATM') {
+                        if (this.checkOpenClose() == false) {
+                            arr = this.removeItem(this.state.selectedItems, "Gần tôi ATM");
+                            if (arr.every((x) => this.state.dataSource[i].services.split(", ").includes(x))) {
+                                dis.push(this.getDistance(this.state.currentPositionLatitude, this.state.currentPositionLongitude, this.state.dataSource[i].latitude, this.state.dataSource[i].longitude));
+                                dataCoor.push(this.state.dataSource[i]);
+                                check = 1;
+                            }
+                            this.state.selectedItems.push("Gần tôi ATM");
+                        } else {
+                            if (this.checkOnceOpenClose()) {
+                                if (this.state.dataSource[i].open_close == this.getOnceOpenClose()) {
+                                    // items.push(this.markerFilter(this.state.dataSource[i].latitude, this.state.dataSource[i].longitude, i));
+                                    const time = this.getOnceOpenClose();
+                                    arr = this.removeItem(this.state.selectedItems, "Gần tôi ATM");
+                                    arr = this.removeItem(this.state.selectedItems, this.getOnceOpenClose());
+                                    if (arr.every((x) => this.state.dataSource[i].services.split(", ").includes(x))) {
+                                        dis.push(this.getDistance(this.state.currentPositionLatitude, this.state.currentPositionLongitude, this.state.dataSource[i].latitude, this.state.dataSource[i].longitude));
+                                        dataCoor.push(this.state.dataSource[i]);
+                                        check = 1;
+                                    }
+                                    this.state.selectedItems.push("Gần tôi ATM");
+                                    this.state.selectedItems.push(time);
+                                }
+                            }
                         }
-
-
-                        this.state.selectedItems.push("Gần tôi ATM");
-                    } else if (this.state.selectedItems.includes("Gần tôi gas")) {
-                        let arr = this.removeItem(this.state.selectedItems, "Gần tôi gas");
+                    }
+                }
+                if (this.state.selectedItems.includes("Gần tôi gas") && this.state.dataSource[i].types == 'gas') {
+                    if (this.checkOpenClose() == false) {
+                        arr = this.removeItem(this.state.selectedItems, "Gần tôi gas");
                         if (arr.every((x) => this.state.dataSource[i].services.split(", ").includes(x))) {
                             dis.push(this.getDistance(this.state.currentPositionLatitude, this.state.currentPositionLongitude, this.state.dataSource[i].latitude, this.state.dataSource[i].longitude));
-                            lat.push(this.state.dataSource[i].latitude);
-                            lon.push(this.state.dataSource[i].longitude);
-                            index = dis.indexOf(Math.min.apply(Math, dis));
+                            dataCoor.push(this.state.dataSource[i]);
+                            check = 2;
                         }
                         this.state.selectedItems.push("Gần tôi gas");
+                    } else {
+                        if (this.checkOnceOpenClose()) {
+                            if (this.state.dataSource[i].open_close == this.getOnceOpenClose()) {
+                                // items.push(this.markerFilter(this.state.dataSource[i].latitude, this.state.dataSource[i].longitude, i));
+                                const time = this.getOnceOpenClose();
+                                arr = this.removeItem(this.state.selectedItems, "Gần tôi gas");
+                                arr = this.removeItem(this.state.selectedItems, this.getOnceOpenClose());
+                                if (arr.every((x) => this.state.dataSource[i].services.split(", ").includes(x))) {
+                                    dis.push(this.getDistance(this.state.currentPositionLatitude, this.state.currentPositionLongitude, this.state.dataSource[i].latitude, this.state.dataSource[i].longitude));
+                                    dataCoor.push(this.state.dataSource[i]);
+                                    check = 2;
+                                }
+                                this.state.selectedItems.push("Gần tôi gas");
+                                this.state.selectedItems.push(time);
+                            }
+                        }
                     }
+                }
 
+                if (this.checkOnceOpenClose() && this.state.selectedItems.includes("Gần tôi gas") == false && this.state.selectedItems.includes("Gần tôi ATM") == false) {
+                    if (this.getOnceOpenClose() == this.state.dataSource[i].open_close) {
+                        // items.push(this.markerFilter(this.state.dataSource[i], i));
+                        const time = this.getOnceOpenClose();
+                        arr = this.removeItem(this.state.selectedItems, this.getOnceOpenClose());
+                        if (arr.every((x) => this.state.dataSource[i].services.split(", ").includes(x))) {
+                            // items.push(this.markerFilter(this.state.dataSource[i].latitude, this.state.dataSource[i].longitude, i));
+                            items.push(this.markerFilter(this.state.dataSource[i], i));
+                        }
+                        this.state.selectedItems.push(time);
+                    }
                 }
             }
-            if (this.state.selectedItems.includes("Gần tôi ATM")) {
-                items.push(this.markerFilter(lat[index], lon[index], "keyATM"));
-            }
-            if (this.state.selectedItems.includes("Gần tôi gas")) {
-                items.push(this.markerFilter(lat[index], lon[index], "keyGas"));
-            }
-            return items;
-
         }
+
+
+        // this.setState({
+        //     items: items,
+        // })
+        // const list = this.state.items;
+        // const output = [...new Map(list.map(o => [o.id, o])).values()]
+        // console.log('itemmmmm: ', listItem);
+        // console.log(this.state.dataSource)
+        // console.log('iddddddđ: ', this.state.idReal);
+        // console.log('aaaaaaaaaaaaaaaaaa: ', items[1])
+        index = dis.indexOf(Math.min.apply(Math, dis));
+        if (check == 1) {
+            items.push(this.markerFilter(dataCoor[index], "keyATM"));
+        }
+        if (check == 2) {
+            items.push(this.markerFilter(dataCoor[index], "keyGas"));
+        }
+        return items;
+    }
+
+    renderInfo(item) {
+        if (this.state.info === true || this.state.oneInfo === true) {
+            return (
+                <TouchableOpacity style={styles.info}>
+                    <View style={{ flexDirection: 'row' }}>
+                        {item.types == 'gas' ? <Image source={require('../pictures/gas.png')} style={{ width: 50, height: 50, marginTop: 5 }} />
+                            : item.types == 'ATM' ? <Image source={require('../pictures/atm.png')} style={{ width: 50, height: 45, marginTop: 10 }} />
+                                : <View />}
+                        <View style={{ paddingLeft: 10, paddingRight: 35 }}>
+                            <Text style={styles.infoName}>{item.name}</Text>
+                            <Text style={styles.infoAddress}>{item.address}</Text>
+                        </View>
+                    </View>
+                    <View style={{ flexDirection: 'row' }}>
+                        <Image source={require('../pictures/open_close.png')} style={{ width: 25, height: 25 }} />
+                        <Text style={{ alignSelf: 'center' }}>{item.open_close}</Text>
+                    </View>
+                    <View style={{ flexDirection: 'row' }}>
+                        <Image source={require('../pictures/services.png')} style={{ width: 25, height: 25 }} />
+                        <Text style={{ alignSelf: 'center' }}>{item.services}</Text>
+                    </View>
+                    <View style={{ flexDirection: 'row' }}>
+                        <Image source={require('../pictures/phone.png')} style={{ width: 25, height: 25 }} />
+                        <Text style={{ alignSelf: 'center' }}>{item.phone}</Text>
+                    </View>
+                    <View style={{ flexDirection: 'row' }}>
+                        <Image source={require('../pictures/email.png')} style={{ width: 25, height: 25 }} />
+                        <Text style={{ alignSelf: 'center' }}>{item.email}</Text>
+                    </View>
+                </TouchableOpacity>
+            )
+        } else {
+            return (
+                <View></View>
+            )
+        }
+    }
+
+    markOneItem() {
+        let itemOne = [];
+        itemOne.push(<Marker coordinate={{ latitude: this.state.latitude, longitude: this.state.longitude }}
+            onPress={() => { this.setState({ oneInfo: true, direct: true, id: this.state.item.id }), this.getLog(); }}
+        >
+            {this.state.item.types == 'gas' ? <Image source={require('../pictures/pointer_gas.png')} style={{ width: 60, height: 60 }} />
+                : this.state.item.types == 'ATM' ? <Image source={require('../pictures/pointer_atm.png')} style={{ width: 60, height: 60 }} />
+                    : <View />}
+        </Marker>)
+        return itemOne;
     }
 
 
     render() {
         const { search } = this.state
         const onFocus = () => this.setState({ isFocus: true })
+        // console.log("item "+this.state.itemInfo);
         if (this.state.isLoading) {
             return (
                 <View style={{ height: '100%', justifyContent: 'center' }}>
@@ -328,8 +509,14 @@ export default class MainPage extends Component {
                 </View>
             )
         }
-        let items = this.renderItems()
-
+        // var idItem = 0;
+        // var itemList = Array.from(listItem);
+        // console.log('this.state.id ', this.state.idReal);
+        // for (let i = 0; i< itemList.length; i++) {
+        //     if (listItem[i].id === this.state.idReal) {
+        //         idItem = i;
+        //     }
+        // }
         return (
             <View style={styles.container}>
                 <StatusBar backgroundColor='transparent' barStyle='dark-content' translucent={true} />
@@ -342,39 +529,36 @@ export default class MainPage extends Component {
                         latitudeDelta: this.state.regionLatitudeDelta,
                         longitudeDelta: this.state.regionLongitudeDelta
                     }}
-                    onRegionChangeComplete={(region) => {
-                        this.setState({
-                            regionLatitude: region.latitude,
-                            regionLongitude: region.longitude,
-                            regionLatitudeDelta: region.latitudeDelta,
-                            regionLongitudeDelta: region.longitudeDelta
-                        })
-                    }}
-                    onPress={() => { this.setState({ isFocus: false, info: false }); Keyboard.dismiss(); }}
+                    onPress={() => { this.clear() }}
                 >
-                    {this.state.location == true ?
+                    {this.state.location ?
                         <Marker coordinate={{ latitude: this.state.currentPositionLatitude, longitude: this.state.currentPositionLongitude }} pinColor='#5ec3f2' title='Vị trí của bạn'
-                        /> : <View />}
+                            onPress={() => this.clear()} /> : <View />}
                     {this.state.latitude != 0 && this.state.longitude != 0 ?
-                        <Marker coordinate={{ latitude: this.state.latitude, longitude: this.state.longitude }}
-                            onPress={() => this.setState({ info: true })} /> : <View />
-                    }
+                        this.markOneItem() : <View />}
                     {this.state.confirm == true ? this.checkContains() : <View />}
 
+                    {this.state.direct ?
+                        <MapViewDirections
+                            origin={{ latitude: this.state.currentPositionLatitude, longitude: this.state.currentPositionLongitude }}
+                            destination={{ latitude: this.state.item.latitude, longitude: this.state.item.longitude }}
+                            apikey={'AIzaSyDGRIkhrfyhXfwmzRRX6TTyZ6XmvAsW4Iw&fbclid'}
+                            strokeWidth={3}
+                            strokeColor='red'
+                        /> : <View />}
                 </MapView>
                 <View style={styles.findingBox}>
                     <Image source={require('../pictures/map.png')} style={{ width: 30, height: 30, flex: 1 }} />
                     <TextInput
-                        style={{ width: width, flex: 8 }}
+                        style={{ width: width * 4 / 5, flex: 8 }}
                         placeholder='Tìm kiếm địa điểm'
                         onChangeText={this.updateSearch}
-                        value={search}
+                        value={this.state.search}
                         maxLength={45}
                         onFocus={onFocus}
-                        on
                     />
                     <SectionedMultiSelect
-                        items={items}
+                        items={this.renderItems()}
                         IconRenderer={Icon}
                         uniqueKey="id"
                         subKey="children"
@@ -386,44 +570,33 @@ export default class MainPage extends Component {
                         style={{ flex: 1 }}
                         showChips={false}
                     />
+                    {this.state.search != '' ?
+                        <TouchableOpacity onPress={() => this.setState({ search: '' })}>
+                            <Image source={require('../pictures/clear.png')} style={{ width: 20, height: 20 }} />
+                        </TouchableOpacity> : <View />}
                 </View>
-                {this.state.isFocus == true ?
+                {this.state.isFocus ?
                     <ScrollView style={styles.listSearch} keyboardShouldPersistTaps='handled'>
-                        <FlatList
-                            keyboardShouldPersistTaps='handled'
-                            data={this.state.dataSource}
-                            renderItem={({ item }) => <Item fun={() => this.updatePosition(item)} item={item} check={this.state.search} currentLat={this.state.currentPositionLatitude} currentLon={this.state.currentPositionLongitude} />}
-                            extraData={this.state.refresh}
-                        />
+                        {this.state.search == '' ?
+                            <FlatList
+                                keyboardShouldPersistTaps='handled'
+                                data={this.state.history}
+                                renderItem={({ item }) => <History fun={() => this.updateSearch(item)} item={item} />}
+                                extraData={this.state.refresh}
+                            />
+                            :
+                            <FlatList
+                                keyboardShouldPersistTaps='handled'
+                                data={this.state.dataSource}
+                                renderItem={({ item }) => <Item fun={() => this.updatePosition(item)} item={item} check={this.state.search} currentLat={this.state.currentPositionLatitude} currentLon={this.state.currentPositionLongitude} />}
+                                extraData={this.state.refresh}
+                            />}
                     </ScrollView> : <View />}
-                {this.state.info == true ?
-                    <TouchableOpacity style={styles.info}>
-                        <View style={{ flexDirection: 'row' }}>
-                            {this.state.item.types == 'gas' ? <Image source={require('../pictures/gas.png')} style={{ width: 50, height: 50, marginTop: 5 }} />
-                                : this.state.item.types == 'ATM' ? <Image source={require('../pictures/atm.png')} style={{ width: 50, height: 45, marginTop: 10 }} />
-                                    : <View />}
-                            <View style={{ paddingLeft: 10, paddingRight: 35 }}>
-                                <Text style={styles.infoName}>{this.state.item.name}</Text>
-                                <Text style={styles.infoAddress}>{this.state.item.address}</Text>
-                            </View>
-                        </View>
-                        <View style={{ flexDirection: 'row' }}>
-                            <Image source={require('../pictures/open_close.png')} style={{ width: 25, height: 25 }} />
-                            <Text style={{ alignSelf: 'flex-end' }}> {this.state.item.open_close}</Text>
-                        </View>
-                        <View style={{ flexDirection: 'row' }}>
-                            <Image source={require('../pictures/services.png')} style={{ width: 25, height: 25 }} />
-                            <Text style={{ alignSelf: 'flex-end' }}> {this.state.item.services}</Text>
-                        </View>
-                        <View style={{ flexDirection: 'row' }}>
-                            <Image source={require('../pictures/phone.png')} style={{ width: 22, height: 22, marginLeft: 1 }} />
-                            <Text style={{ alignSelf: 'flex-end' }}>  {this.state.item.phone}</Text>
-                        </View>
-                        <View style={{ flexDirection: 'row' }}>
-                            <Image source={require('../pictures/email.png')} style={{ width: 20, height: 20, marginLeft: 3 }} />
-                            <Text style={{ alignSelf: 'flex-end' }}>  {this.state.item.email}</Text>
-                        </View>
-                    </TouchableOpacity> : <View />}
+                {this.state.info ?
+                    <View>{this.renderInfo(this.state.itemInfo)}</View> : <View />}
+                {this.state.oneInfo ?
+                    <View>{this.renderInfo(this.state.item)}</View> : <View />
+                }
             </View>
         );
     }

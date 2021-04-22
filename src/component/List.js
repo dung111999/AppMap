@@ -1,125 +1,120 @@
 import React, { Component } from 'react';
 import { Text, Dimensions, View, ScrollView, Image, ActivityIndicator, StatusBar, TouchableOpacity, FlatList } from 'react-native';
+import { Picker } from '@react-native-picker/picker';
 import { styles } from '../StyleSheet';
-import { Item } from '../RenderItem';
+import { Filter } from '../function/Filter';
+import { FetchData } from '../function/FetchData';
 import MainPage from './MainPage';
-import { Filter } from '../Filter';
 
-let {height, width} = Dimensions.get('window');
+let { height, width } = Dimensions.get('window');
 
 export default class List extends Component {
-    constructor(props){
+    constructor(props) {
         super(props);
         this.state = {
-          listGas: false,
-          listATM: false,
-          isLoading: true,
-          dataSource: [],
-          filter: '',
-          filterList: false,
-          refresh: true,
+            listGas: true,
+            listATM: false,
+            isLoading: true,
+            dataSource: [],
+            filter: ' ',
+            refresh: true,
         }
     }
-    async componentDidMount(){
-        try {
-            const response = await fetch('http://192.168.0.105:8084/poi');
-            const responseJson = await response.json();
+    async componentDidMount() {
+        FetchData.data().then(res => {
             this.setState({
                 isLoading: false,
-                dataSource: responseJson,
-            }, function () {
-            });
-        } catch (error) {
-            console.error(error);
-        }
+                dataSource: res,
+            })
+        })
     }
     render() {
-        const chooseFilter = () => this.setState({filterList: !this.state.filterList})
-        if(this.state.isLoading) {
+        if (this.state.isLoading) {
             return (
-                <View style={{height: '100%', justifyContent: 'center'}}>
-                    <ActivityIndicator size='large'/>
+                <View style={{ height: '100%', justifyContent: 'center' }}>
+                    <ActivityIndicator size='large' />
                 </View>
             )
         }
         return (
             <View>
-                <StatusBar backgroundColor='transparent' translucent={true}/>
-                <View style={{flexDirection: 'row'}}>
-                    {this.state.listGas == false ?
-                    <TouchableOpacity style={styles.circle} onPress={() => this.setState({listGas: true, listATM: false})}>
-                        <Image source={require('../pictures/gas.png')} style={{width: 24, height: 24}}/>
-                    </TouchableOpacity> :
-                    <TouchableOpacity style={styles.circleBlue} onPress={() => this.setState({listGas: false})}>
-                        <Image source={require('../pictures/gas_choose.png')} style={{width: 24, height: 24}}/>
-                    </TouchableOpacity>}
-                    {this.state.listATM == false ?
-                    <TouchableOpacity style={styles.circle} onPress={() => this.setState({listATM: true, listGas: false})}>
-                        <Image source={require('../pictures/atm.png')} style={{width: 23, height: 23}}/>
-                    </TouchableOpacity> :
-                    <TouchableOpacity style={styles.circleBlue} onPress={() => this.setState({listATM: false})}>
-                    <Image source={require('../pictures/atm_choose.png')} style={{width: 23, height: 23}}/>
-                    </TouchableOpacity>}
-                    <View style={{marginTop: 35, flexDirection: 'row', marginLeft: width/4}}>
-                        <View style={{flexDirection: 'row'}}>
-                            <Text style={{fontWeight: 'bold', alignSelf: 'center'}}>Filter: </Text>
-                            <View style={{flexDirection: 'row', height: 35, width: 130, borderWidth: 1, alignSelf: 'center', right: 100}}>
-                                <Text style={styles.filterBox}>{this.state.filter}</Text>
-                                <TouchableOpacity style={{flex: 1, borderLeftWidth: 1}} onPress={chooseFilter}>
-                                    <Text style={{fontWeight: 'bold', alignSelf: 'center'}}>Z</Text>
-                                </TouchableOpacity>
-                            </View>
-                        </View>
+                <StatusBar backgroundColor='transparent' translucent={true} />
+                <View style={{ flexDirection: 'row' }}>
+                    {this.state.listGas ?
+                        <TouchableOpacity style={styles.circleBlue} onPress={() => this.setState({ listGas: false })}>
+                            <Image source={require('../pictures/gas_choose.png')} style={{ width: 24, height: 24 }} />
+                        </TouchableOpacity>
+                        :
+                        <TouchableOpacity style={styles.circle} onPress={() => this.setState({ listGas: true, listATM: false, filter: ' ', refresh: !this.state.refresh })}>
+                            <Image source={require('../pictures/gas.png')} style={{ width: 24, height: 24 }} />
+                        </TouchableOpacity>}
+                    {this.state.listATM ?
+                        <TouchableOpacity style={styles.circleBlue} onPress={() => this.setState({ listATM: false })}>
+                            <Image source={require('../pictures/atm_choose.png')} style={{ width: 23, height: 23 }} />
+                        </TouchableOpacity>
+                        :
+                        <TouchableOpacity style={styles.circle} onPress={() => this.setState({ listATM: true, listGas: false, filter: ' ', refresh: !this.state.refresh })}>
+                            <Image source={require('../pictures/atm.png')} style={{ width: 23, height: 23 }} />
+                        </TouchableOpacity>}
+                    <View style={{ height: 40, width: width / 3, marginLeft: width / 3, marginTop: 40, borderBottomWidth: 1, justifyContent: 'center' }}>
+                        {this.state.listGas ?
+                            <Picker
+                                style={{ height: 40, width: 150 }}
+                                onValueChange={(itemValue) => this.setState({ filter: itemValue, refresh: !this.state.refresh })}
+                            >
+                                <Picker.Item label='Tất cả' value=' ' />
+                                <Picker.Item label='RON 95' value='RON 95' />
+                                <Picker.Item label='RON 92' value='RON 92' />
+                                <Picker.Item label='Diesel' value='Diesel' />
+                                <Picker.Item label='Dầu nhờn' value='Dầu nhờn' />
+                                <Picker.Item label='Bảo hiểm' value='Bảo hiểm' />
+                                <Picker.Item label='Thay dầu' value='Thay dầu' />
+                            </Picker> : <View />}
+                        {this.state.listATM ?
+                            <Picker
+                                style={{ height: 40, width: 150 }}
+                                onValueChange={(itemValue) => this.setState({ filter: itemValue, refresh: !this.state.refresh })}
+                            >
+                                <Picker.Item label='Tất cả' value=' ' />
+                                <Picker.Item label='Nộp tiền' value='Nộp tiền' />
+                                <Picker.Item label='Rút tiền' value='Rút tiền' />
+                                <Picker.Item label='Chuyển tiền' value='Chuyển tiền' />
+                                <Picker.Item label='Vấn tin số dư' value='Vấn tin số dư' />
+                                <Picker.Item label='Mở tài khoản thanh toán' value='Mở tài khoản thanh toán' />
+                                <Picker.Item label='Phát hành thẻ lấy ngay' value='Phát hành thẻ lấy ngay' />
+                            </Picker> : <View />}
                     </View>
-                    {this.state.filterList == true ?
-                    <View style={{position: 'absolute', marginTop: 65, marginLeft: width/4, height: 200, zIndex: 1}}>
-                        <TouchableOpacity>
-                            <Text>RON 95</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity>
-                            <Text>RON 92</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity>
-                            <Text>Diesel</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity>
-                            <Text>Dầu nhờn</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity>
-                            <Text>Bảo hiểm</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity onPress={() => this.setState({filter: 'Thay dầu', refresh: !this.state.refresh})}>
-                            <Text>Thay dầu</Text>
-                        </TouchableOpacity>
-                    </View>
-                    : <View/>}
                 </View>
-                {this.state.listGas == true ? 
-                <ScrollView style = {styles.list}>
-                    <FlatList
-                        data = {this.state.dataSource}
-                        renderItem={({item}) => {return(<View>{item.types == 'gas' && Filter({services: item.services, check: this.state.filter}) == true ? 
-                        <View  style={styles.itemList}>
-                            <Text style={styles.name}>{item.name}</Text>
-                            <Text>Dịch vụ: {item.services}</Text>
-                        </View>: <View/>}</View>)}}
-                        extraData = {this.state.refresh}
-                    />
-                    <View style={{height: 80}}/>
-                </ScrollView> : <View/>}
-                {this.state.listATM == true ? 
-                <ScrollView style = {styles.list}>
-                    <FlatList
-                        data = {this.state.dataSource}
-                        renderItem={({item}) => {return(<View>{item.types == 'ATM' ?
-                        <View  style={styles.itemList}>
-                            <Text style={styles.name}>{item.name}</Text>
-                            <Text>Dịch vụ: {item.services}</Text>
-                        </View> : <View/>}</View>)}}
-                        extraData = {this.state.refresh}
-                    />
-                    <View style={{height: 80}}/>
-                </ScrollView> : <View/>}
+                {this.state.listGas ?
+                    <ScrollView style={styles.list}>
+                        <FlatList
+                            data={this.state.dataSource}
+                            renderItem={({ item }) => {
+                                return (<View>{item.types == 'gas' && Filter({ services: item.services, check: this.state.filter }) ?
+                                    <TouchableOpacity style={styles.itemList} onPress={() => this.props.navigation.navigate('MainPage')}>
+                                        <Text style={styles.name}>{item.name}</Text>
+                                        <Text>Dịch vụ: {item.services}</Text>
+                                    </TouchableOpacity> : <View />}</View>)
+                            }}
+                            extraData={this.state.refresh}
+                        />
+                        <View style={{ height: 155 }} />
+                    </ScrollView> : <View />}
+                {this.state.listATM ?
+                    <ScrollView style={styles.list}>
+                        <FlatList
+                            data={this.state.dataSource}
+                            renderItem={({ item }) => {
+                                return (<View>{item.types == 'ATM' && Filter({ services: item.services, check: this.state.filter }) ?
+                                    <TouchableOpacity style={styles.itemList} onPress={() => this.props.navigation.navigate('  MainPage')}>
+                                        <Text style={styles.name}>{item.name}</Text>
+                                        <Text>Dịch vụ: {item.services}</Text>
+                                    </TouchableOpacity> : <View />}</View>)
+                            }}
+                            extraData={this.state.refresh}
+                        />
+                        <View style={{ height: 155 }} />
+                    </ScrollView> : <View />}
             </View>
         );
     }

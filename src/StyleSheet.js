@@ -7,13 +7,12 @@ export const styles = StyleSheet.create({
     position: 'absolute',
     width: width,
     height: 50,
-    marginTop: 30, 
+    marginTop: 30,
     paddingHorizontal: 10,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'white',
+    backgroundColor: 'white'
   },
-
   itemBox: {
     width: width,
     flexDirection: 'row',
@@ -21,9 +20,20 @@ export const styles = StyleSheet.create({
     borderColor: 'white',
     borderTopColor: 'black',
     borderWidth: 1,
-    height: 65,
     padding: 5,
     paddingLeft: 10
+  },
+  historyBox: {
+    width: width,
+    height: 40,
+    flexDirection: 'row',
+    backgroundColor: 'white',
+    borderColor: 'white',
+    borderTopColor: 'black',
+    borderWidth: 1,
+    padding: 5,
+    paddingLeft: 12.5,
+    alignItems: 'center',
   },
   itemList: {
     width: width,
@@ -31,21 +41,22 @@ export const styles = StyleSheet.create({
     borderColor: 'white',
     borderTopColor: 'black',
     borderWidth: 1,
+    height: 70,
     padding: 5,
     paddingLeft: 10
   },
   list: {
     height: height,
-    marginTop: 25
+    marginTop: 25,
   },
   listSearch: {
     position: 'absolute',
-    height: height / 2,
-    marginTop: 80
+    marginTop: 80,
   },
   name: {
     fontSize: 16,
-    fontWeight: 'bold'
+    fontWeight: 'bold',
+    color: 'black'
   },
   address: {
     fontSize: 12
@@ -78,7 +89,7 @@ export const styles = StyleSheet.create({
     backgroundColor: 'white',
     padding: 5,
     paddingLeft: 10,
-    paddingRight: 10,
+    paddingRight: 20,
   },
   infoName: {
     fontSize: 20,
@@ -86,9 +97,6 @@ export const styles = StyleSheet.create({
   },
   infoAddress: {
     fontSize: 14,
-  },
-  filterBox: {
-    flex: 6,
   },
   container: {
     ...StyleSheet.absoluteFillObject,
