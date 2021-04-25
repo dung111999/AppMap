@@ -1,5 +1,5 @@
 import React, { Component } from 'react';
-import { Text, TextInput, View, Image, StatusBar, TouchableOpacity, Dimensions, ActivityIndicator, FlatList, Keyboard } from 'react-native';
+import { Text, TextInput, View, Image, StatusBar, TouchableOpacity, Dimensions, ActivityIndicator, FlatList, Keyboard, PermissionsAndroid, Platform } from 'react-native';
 import MapView, { PROVIDER_GOOGLE, Marker } from 'react-native-maps';
 import MapViewDirections from 'react-native-maps-directions';
 import { styles } from '../StyleSheet';
@@ -13,13 +13,15 @@ import { History } from '../function/RenderHistory';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import SectionedMultiSelect from 'react-native-sectioned-multi-select';
 import { getDistance } from 'geolib';
+import { Alert } from 'react-native';
 
 let { height, width } = Dimensions.get('window');
 
 const serviceGas = ['RON 95', 'RON 92', 'Diesel', 'Dầu nhờn', 'Bảo hiểm', 'Sơn', 'Nước giặt', 'Thay dầu', 'Nhà vệ sinh'];
-const serviceATM = ['Agribank', 'BIDV', 'Vietcombank', 'Vietinbank', 'Techcombank', 'TP', 'MB', 'VP', 'VIB', 'ACB', 'MSB', 'PG', 'SHB', 'Sacombank', 'AB', 'SeABank', 'SaiGonBank', 'PublicBank', 'HSBC', 'HDBank', 'Eximbank', 'PVCombank', 'OceanBank', 'VietBank', 'VietABank', 'GPBank', 'Nộp tiền', 'Rút tiền', 'Vấn tin số dư', 'Chuyển tiền', 'Mở tài khoản thanh toán', 'Phát hành thẻ lấy ngay'];
+const serviceATM = ['Agribank', 'BIDV', 'Vietcombank', 'Vietinbank', 'TP', 'MB', 'VP', 'VIB', 'ACB', 'MSB', 'PG', 'SHB', 'Sacombank', 'AB', 'SeABank', 'SaiGonBank', 'PublicBank', 'HSBC', 'HDBank', 'Eximbank', 'PVCombank', 'OceanBank', 'VietBank', 'VietABank', 'GPBank','Techcombank','Nộp tiền', 'Rút tiền', 'Vấn tin số dư', 'Chuyển tiền', 'Mở tài khoản thanh toán', 'Phát hành thẻ lấy ngay'];
 const openTime = ['05:00 - 24:00', '05:30 - 22:00', '06:00 - 22:00', '06:00 - 22:30', '08:00 - 22:00', '24/24'];
-// let listItem = new Set([]);
+
+
 export default class MainPage extends Component {
     constructor(props) {
         super(props);
@@ -46,25 +48,27 @@ export default class MainPage extends Component {
             confirm: false,
             itemInfo: [],
             oneInfo: false,
-            // idReal: 0,
-            // items: [],
+            directFilter: false,
         }
     }
+
     async componentDidMount() {
-        this.currentPosition();
-        this.getLog();
-        FetchData.data().then((res) => {
-            //console.log(res)
-            this.setState({
-                isLoading: false,
-                dataSource: res,
+        {
+            this.currentPosition();
+            this.getLog();
+            FetchData.data().then((res) => {
+                this.setState({
+                    isLoading: false,
+                    dataSource: res,
+                })
             })
-        })
+        }
     }
+
     currentPosition() {
         Geolocation.getCurrentPosition(
             (info) => this.getPosition(info.coords.latitude, info.coords.longitude),
-            (error) => console.log(error),
+            (error) => Alert.alert('Bạn cần bật vị trí để sử dụng ứng dụng này'),
             { enableHighAccuracy: false, timeout: 50000 }
         );
     }
@@ -90,7 +94,9 @@ export default class MainPage extends Component {
     updateSearch = (search) => {
         this.setState({
             search,
-            refresh: !this.state.refresh
+            refresh: !this.state.refresh,
+            confirm: false,
+            selectedItems: []
         })
     }
     getLog() {
@@ -105,6 +111,7 @@ export default class MainPage extends Component {
             isFocus: false,
             info: false,
             direct: false,
+            directFilter: false
         })
         this.getLog();
         Keyboard.dismiss();
@@ -116,7 +123,12 @@ export default class MainPage extends Component {
 
     onSelectedConfirm = () => {
         this.setState({
-            confirm: true
+            confirm: true,
+            oneInfo: false,
+            latitude: 0,
+            longitude: 0,
+            directFilter: false,
+            direct: false
         })
     }
 
@@ -216,51 +228,37 @@ export default class MainPage extends Component {
     setData(data) {
         this.setState({
             itemInfo: data,
-            info: true
+            info: true,
+            directFilter: true,
+            direct: false
         })
-        console.log("click " + data)
+        // console.log("click " + data)
+        // console.log(this.state.itemInfo);
+    }
+
+    directFilter() {
+        console.log(this.state.itemInfo.length);
+        return (
+            <MapViewDirections
+                origin={{ latitude: this.state.currentPositionLatitude, longitude: this.state.currentPositionLongitude }}
+                destination={{ latitude: this.state.itemInfo.latitude, longitude: this.state.itemInfo.longitude }}
+                apikey={'AIzaSyDGRIkhrfyhXfwmzRRX6TTyZ6XmvAsW4Iw&fbclid'}
+                strokeWidth={3}
+                strokeColor='red'
+            />
+        )
     }
 
     markerFilter(data, key) {
-
-        // if (data.types == "gas") {
-        //     this.state.item = data;
-        //     console.log(this.state.item);
-        //     return (
-        //         <Marker
-        //             key={key}
-        //             coordinate={{ latitude: data.latitude, longitude: data.longitude }}
-        //             onPress={() => { this.setState({ info: true }) }}
-        //         >
-        //             <Image source={require('../pictures/pointer_gas.png')} style={{ width: 60, height: 60 }} />
-        //         </Marker>
-        //     )
-        // }
-        // if (data.types == 'ATM') {
-        //     this.state.item = data;
-        //     console.log(this.state.item);
-        //     return (
-        //         <Marker
-        //             key={key}
-        //             coordinate={{ latitude: data.latitude, longitude: data.longitude }}
-        //             onPress={() => { this.setState({ info: true }) }}
-        //         >
-        //             <Image source={require('../pictures/pointer_atm.png')} style={{ width: 60, height: 60 }} />
-        //         </Marker>
-        //     )
-        // }
-        // this.setState(prevState => ({
-        //     items: [...new Map(prevState.items.map(o => [o.id, o])).values(), data]
-        //   }))
-        // listItem.add(data);
         this.state.item = data;
+
         if (this.state.item.types == 'gas') {
             //console.log(this.state.item);
             return (
                 <Marker
                     key={key}
                     coordinate={{ latitude: data.latitude, longitude: data.longitude }}
-                    onPress={() => this.setData(data)}
+                    onPress={() => { this.setData(data) }}
                 >
                     <Image source={require('../pictures/pointer_gas.png')} style={{ width: 60, height: 60 }} />
                 </Marker>
@@ -337,7 +335,6 @@ export default class MainPage extends Component {
     }
 
     checkContains() {
-        // this.markOneItem() = null;
         let items = [];
         let dis = [];
         let dataCoor = [];
@@ -428,15 +425,6 @@ export default class MainPage extends Component {
         }
 
 
-        // this.setState({
-        //     items: items,
-        // })
-        // const list = this.state.items;
-        // const output = [...new Map(list.map(o => [o.id, o])).values()]
-        // console.log('itemmmmm: ', listItem);
-        // console.log(this.state.dataSource)
-        // console.log('iddddddđ: ', this.state.idReal);
-        // console.log('aaaaaaaaaaaaaaaaaa: ', items[1])
         index = dis.indexOf(Math.min.apply(Math, dis));
         if (check == 1) {
             items.push(this.markerFilter(dataCoor[index], "keyATM"));
@@ -444,6 +432,7 @@ export default class MainPage extends Component {
         if (check == 2) {
             items.push(this.markerFilter(dataCoor[index], "keyGas"));
         }
+
         return items;
     }
 
@@ -486,22 +475,21 @@ export default class MainPage extends Component {
     }
 
     markOneItem() {
-        let itemOne = [];
-        itemOne.push(<Marker coordinate={{ latitude: this.state.latitude, longitude: this.state.longitude }}
-            onPress={() => { this.setState({ oneInfo: true, direct: true, id: this.state.item.id }), this.getLog(); }}
+        let items = [];
+        items.push(<Marker coordinate={{ latitude: this.state.latitude, longitude: this.state.longitude }}
+            onPress={() => { this.setState({ oneInfo: true, direct: true }), this.getLog(); }}
         >
             {this.state.item.types == 'gas' ? <Image source={require('../pictures/pointer_gas.png')} style={{ width: 60, height: 60 }} />
                 : this.state.item.types == 'ATM' ? <Image source={require('../pictures/pointer_atm.png')} style={{ width: 60, height: 60 }} />
                     : <View />}
         </Marker>)
-        return itemOne;
+        return items;
     }
 
 
     render() {
         const { search } = this.state
         const onFocus = () => this.setState({ isFocus: true })
-        // console.log("item "+this.state.itemInfo);
         if (this.state.isLoading) {
             return (
                 <View style={{ height: '100%', justifyContent: 'center' }}>
@@ -509,14 +497,7 @@ export default class MainPage extends Component {
                 </View>
             )
         }
-        // var idItem = 0;
-        // var itemList = Array.from(listItem);
-        // console.log('this.state.id ', this.state.idReal);
-        // for (let i = 0; i< itemList.length; i++) {
-        //     if (listItem[i].id === this.state.idReal) {
-        //         idItem = i;
-        //     }
-        // }
+
         return (
             <View style={styles.container}>
                 <StatusBar backgroundColor='transparent' barStyle='dark-content' translucent={true} />
@@ -546,6 +527,11 @@ export default class MainPage extends Component {
                             strokeWidth={3}
                             strokeColor='red'
                         /> : <View />}
+
+                    {this.state.directFilter ?
+                        this.directFilter() : <View />
+                    }
+
                 </MapView>
                 <View style={styles.findingBox}>
                     <Image source={require('../pictures/map.png')} style={{ width: 30, height: 30, flex: 1 }} />
@@ -569,6 +555,7 @@ export default class MainPage extends Component {
                         selectedItems={this.state.selectedItems}
                         style={{ flex: 1 }}
                         showChips={false}
+                        searchPlaceholderText="Search"
                     />
                     {this.state.search != '' ?
                         <TouchableOpacity onPress={() => this.setState({ search: '' })}>
@@ -595,9 +582,10 @@ export default class MainPage extends Component {
                 {this.state.info ?
                     <View>{this.renderInfo(this.state.itemInfo)}</View> : <View />}
                 {this.state.oneInfo ?
-                    <View>{this.renderInfo(this.state.item)}</View> : <View />
-                }
+                    <View>{this.renderInfo(this.state.item)}</View> : <View />}
             </View>
+
+
         );
     }
 }
