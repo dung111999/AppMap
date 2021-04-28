@@ -1,5 +1,5 @@
 import React, { Component } from 'react';
-import { Text, TextInput, View, Image, StatusBar, TouchableOpacity, Dimensions, ActivityIndicator, FlatList, Keyboard, PermissionsAndroid, Platform } from 'react-native';
+import { Text, TextInput, View, Image, StatusBar, TouchableOpacity, Dimensions, ActivityIndicator, FlatList, Keyboard, NetInfo, Platform } from 'react-native';
 import MapView, { PROVIDER_GOOGLE, Marker } from 'react-native-maps';
 import MapViewDirections from 'react-native-maps-directions';
 import { styles } from '../StyleSheet';
@@ -18,9 +18,8 @@ import { Alert } from 'react-native';
 let { height, width } = Dimensions.get('window');
 
 const serviceGas = ['RON 95', 'RON 92', 'Diesel', 'Dầu nhờn', 'Bảo hiểm', 'Sơn', 'Nước giặt', 'Thay dầu', 'Nhà vệ sinh'];
-const serviceATM = ['Agribank', 'BIDV', 'Vietcombank', 'Vietinbank', 'TP', 'MB', 'VP', 'VIB', 'ACB', 'MSB', 'PG', 'SHB', 'Sacombank', 'AB', 'SeABank', 'SaiGonBank', 'PublicBank', 'HSBC', 'HDBank', 'Eximbank', 'PVCombank', 'OceanBank', 'VietBank', 'VietABank', 'GPBank','Techcombank','Nộp tiền', 'Rút tiền', 'Vấn tin số dư', 'Chuyển tiền', 'Mở tài khoản thanh toán', 'Phát hành thẻ lấy ngay'];
+const serviceATM = ['Agribank', 'BIDV', 'Vietcombank', 'Vietinbank', 'TP', 'MB', 'VP', 'VIB', 'ACB', 'MSB', 'PG', 'SHB', 'Sacombank', 'AB', 'SeABank', 'SaiGonBank', 'PublicBank', 'HSBC', 'HDBank', 'Eximbank', 'PVCombank', 'OceanBank', 'VietBank', 'VietABank', 'GPBank', 'Techcombank', 'Nộp tiền', 'Rút tiền', 'Vấn tin số dư', 'Chuyển tiền', 'Mở tài khoản thanh toán', 'Phát hành thẻ lấy ngay'];
 const openTime = ['05:00 - 24:00', '05:30 - 22:00', '06:00 - 22:00', '06:00 - 22:30', '08:00 - 22:00', '24/24'];
-
 
 export default class MainPage extends Component {
     constructor(props) {
@@ -49,6 +48,7 @@ export default class MainPage extends Component {
             itemInfo: [],
             oneInfo: false,
             directFilter: false,
+            info: false
         }
     }
 
@@ -63,7 +63,23 @@ export default class MainPage extends Component {
                 })
             })
         }
+        {
+            if (Platform.OS === "android") {
+                NetInfo.isConnected.fetch().then(isConnected => {
+                    if (isConnected == false) {
+                        Alert.alert("You are offline!");
+                    }
+                });
+            } else {
+                // For iOS devices
+                NetInfo.isConnected.addEventListener(
+                    "connectionChange",
+                    this.handleFirstConnectivityChange
+                );
+            }
+        }
     }
+
 
     currentPosition() {
         Geolocation.getCurrentPosition(
@@ -225,19 +241,8 @@ export default class MainPage extends Component {
         return items;
     }
 
-    setData(data) {
-        this.setState({
-            itemInfo: data,
-            info: true,
-            directFilter: true,
-            direct: false
-        })
-        // console.log("click " + data)
-        // console.log(this.state.itemInfo);
-    }
 
     directFilter() {
-        console.log(this.state.itemInfo.length);
         return (
             <MapViewDirections
                 origin={{ latitude: this.state.currentPositionLatitude, longitude: this.state.currentPositionLongitude }}
@@ -249,6 +254,21 @@ export default class MainPage extends Component {
         )
     }
 
+    animate(data) {
+      
+        this.state.item = data;
+
+        this.setState({
+            itemInfo: data,
+            info: true,
+            directFilter: true,
+            direct: false,
+            regionLatitude: data.latitude,
+            regionLongitude: data.longitude
+            
+        })
+    }
+
     markerFilter(data, key) {
         this.state.item = data;
 
@@ -257,8 +277,8 @@ export default class MainPage extends Component {
             return (
                 <Marker
                     key={key}
-                    coordinate={{ latitude: data.latitude, longitude: data.longitude }}
-                    onPress={() => { this.setData(data) }}
+                    coordinate={{ latitude: this.state.item.latitude, longitude: this.state.item.longitude }}
+                    onPress={() => { this.animate(data) }}
                 >
                     <Image source={require('../pictures/pointer_gas.png')} style={{ width: 60, height: 60 }} />
                 </Marker>
@@ -269,8 +289,8 @@ export default class MainPage extends Component {
             return (
                 <Marker
                     key={key}
-                    coordinate={{ latitude: data.latitude, longitude: data.longitude }}
-                    onPress={() => this.setData(data)}
+                    coordinate={{ latitude: this.state.item.latitude, longitude: this.state.item.longitude }}
+                    onPress={() => { this.animate(data) }}
                 >
                     <Image source={require('../pictures/pointer_atm.png')} style={{ width: 60, height: 60 }} />
                 </Marker>
@@ -342,13 +362,12 @@ export default class MainPage extends Component {
         let check = 0;
         let arr = [];
 
+
         if (this.state.selectedItems.length != 0) {
-            // listItem.clear();
 
             for (let i = 0; i < this.state.dataSource.length; i++) {
                 if (this.state.selectedItems.includes("Gần tôi ATM") == false && this.state.selectedItems.includes("Gần tôi gas") == false && this.checkOpenClose() == false) {
                     if (this.state.selectedItems.every((x) => this.state.dataSource[i].services.split(", ").includes(x))) {
-                        // items.push(this.markerFilter(this.state.dataSource[i].latitude, this.state.dataSource[i].longitude, i));
                         items.push(this.markerFilter(this.state.dataSource[i], i));
                     }
                 } else {
@@ -365,7 +384,6 @@ export default class MainPage extends Component {
                         } else {
                             if (this.checkOnceOpenClose()) {
                                 if (this.state.dataSource[i].open_close == this.getOnceOpenClose()) {
-                                    // items.push(this.markerFilter(this.state.dataSource[i].latitude, this.state.dataSource[i].longitude, i));
                                     const time = this.getOnceOpenClose();
                                     arr = this.removeItem(this.state.selectedItems, "Gần tôi ATM");
                                     arr = this.removeItem(this.state.selectedItems, this.getOnceOpenClose());
@@ -393,7 +411,6 @@ export default class MainPage extends Component {
                     } else {
                         if (this.checkOnceOpenClose()) {
                             if (this.state.dataSource[i].open_close == this.getOnceOpenClose()) {
-                                // items.push(this.markerFilter(this.state.dataSource[i].latitude, this.state.dataSource[i].longitude, i));
                                 const time = this.getOnceOpenClose();
                                 arr = this.removeItem(this.state.selectedItems, "Gần tôi gas");
                                 arr = this.removeItem(this.state.selectedItems, this.getOnceOpenClose());
@@ -411,11 +428,9 @@ export default class MainPage extends Component {
 
                 if (this.checkOnceOpenClose() && this.state.selectedItems.includes("Gần tôi gas") == false && this.state.selectedItems.includes("Gần tôi ATM") == false) {
                     if (this.getOnceOpenClose() == this.state.dataSource[i].open_close) {
-                        // items.push(this.markerFilter(this.state.dataSource[i], i));
                         const time = this.getOnceOpenClose();
                         arr = this.removeItem(this.state.selectedItems, this.getOnceOpenClose());
                         if (arr.every((x) => this.state.dataSource[i].services.split(", ").includes(x))) {
-                            // items.push(this.markerFilter(this.state.dataSource[i].latitude, this.state.dataSource[i].longitude, i));
                             items.push(this.markerFilter(this.state.dataSource[i], i));
                         }
                         this.state.selectedItems.push(time);
@@ -486,7 +501,6 @@ export default class MainPage extends Component {
         return items;
     }
 
-
     render() {
         const { search } = this.state
         const onFocus = () => this.setState({ isFocus: true })
@@ -497,6 +511,7 @@ export default class MainPage extends Component {
                 </View>
             )
         }
+ 
 
         return (
             <View style={styles.container}>
@@ -518,6 +533,7 @@ export default class MainPage extends Component {
                     {this.state.latitude != 0 && this.state.longitude != 0 ?
                         this.markOneItem() : <View />}
                     {this.state.confirm == true ? this.checkContains() : <View />}
+
 
                     {this.state.direct ?
                         <MapViewDirections
@@ -580,12 +596,17 @@ export default class MainPage extends Component {
                             />}
                     </ScrollView> : <View />}
                 {this.state.info ?
-                    <View>{this.renderInfo(this.state.itemInfo)}</View> : <View />}
+                    
+                    <View>
+                   
+                    {this.renderInfo(this.state.itemInfo)}
+                    </View> : <View />}
                 {this.state.oneInfo ?
                     <View>{this.renderInfo(this.state.item)}</View> : <View />}
             </View>
 
 
         );
+
     }
 }
